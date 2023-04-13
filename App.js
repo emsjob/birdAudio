@@ -1,44 +1,51 @@
-import React from 'react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { AudioRecorderPlayer } from 'react-native-audio-recorder-player';
-import * as Permissions from 'expo-permissions';
+import { Audio } from 'expo-av';
 
 const App = () => {
-  const [isListening, setIsListening] = useState(false);
-  //const audioRecorderPlayer = new AudioRecorderPlayer();
+  const [recording, setRecording] = useState();
 
-  const handleListenButtonPress = async () => {
-    const audioRecorderPlayer = new AudioRecorderPlayer();
-    if (isListening) {
-      // stop recording and analyze result
-      try {
-        const result = await audioRecorderPlayer.stopRecorder();
-        console.log('Stopped recording:', result);
-        const audioURI = await audioRecorderPlayer.getRecordURL();
-        console.log('Recorded audio URI:', audioURI);
-        setIsListening(false);
-      } catch (error) {
-        console.log('Error stopping recording:', error);
+  const startRecording = async () => {
+    try {
+      console.log('Requesting permissions...');
+      const permission = await Audio.requestPermissionsAsync();
+      console.log('Permission status:', permission.status);
+      if (permission.status === 'granted') {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+
+        console.log('Starting recording...');
+        console.log('Recording status:', recording);
+        const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+        setRecording(recording);
+        console.log('Recording started');
+        console.log('Recording status:', recording);
       }
-    } else {
-      // start recording
-      try {
-        const result = await audioRecorderPlayer.startRecorder();
-        console.log('Started recording:', result)
-        setIsListening(true);
-      } catch (error) {
-        console.log('Error starting recording:', error);
-      }
+    } catch (error) {
+      console.log('Error starting recording:', error);
     }
   }
 
+  const stopRecording = async () => {
+    console.log('Stopping recording');
+    setRecording(undefined);
+    await recording.stopAndUnloadAsync();
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+    });
+    const uri = recording.getURI();
+    console.log('Recording stopped and stored at:', uri);
+  }
+
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={handleListenButtonPress} style={styles.button}>
+      <TouchableOpacity onPress={recording ? stopRecording : startRecording} style={styles.button}>
         <Text style={styles.buttonText}>
-          {isListening ? 'Stop Listening' : 'Start Listening'}
+          {recording ? 'Stop Listening' : 'Start Listening'}
         </Text>
       </TouchableOpacity>
       <StatusBar style="auto" />
